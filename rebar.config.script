@@ -9,6 +9,21 @@ ErlOpts = if not HaveEQC -> []; true ->
     [{d, 'HAVE_EQC'}]
 end,
 
+PreHooks = [
+    {"(linux|darwin|solaris|gnu)", compile, "make -C c_src"},
+    {"(freebsd|netbsd|openbsd|dragonfly)", compile, "gmake -C c_src"}
+],
+
+MakeHooks = fun (ConfigX, LtoSupport) ->
+    HasLtoSupport =
+        case LtoSupport of
+            has_lto -> " HAVE_LTO=1";
+            no_lto  -> ""
+        end,
+    Hooks = {pre_hooks, [{A, B, C ++ HasLtoSupport} || {A, B, C} <- PreHooks]},
+    lists:keyreplace(pre_hooks, 1, ConfigX, Hooks)
+end,
+
 Config1 = case lists:keyfind(erl_opts, 1, CONFIG) of
     {erl_opts, Opts} ->
         NewOpts = {erl_opts, Opts ++ ErlOpts},
@@ -27,39 +42,12 @@ Config2 = case os:type() of
                 ++ CC ++ " -c -x c -o /dev/null -flto -",
         case os:cmd(FLTO_CHECK) of
             [] ->
-                {port_env, PortEnv} = lists:keyfind(port_env, 1, Config1),
-                NewFlag = {".*", "FLTO_FLAG", "-flto"},
-                NewPortEnv = lists:keyreplace("FLTO_FLAG", 2, PortEnv, NewFlag),
-                lists:keyreplace(port_env, 1, Config1, {port_env, NewPortEnv});
+                MakeHooks(Config1, has_lto);
             _ ->
-                Config1
+                MakeHooks(Config1, no_lto)
         end;
     _ ->
-        Config1
+        MakeHooks(Config1, no_lto)
 end,
 
-IsRebar2 = case lists:keyfind(rebar, 1, application:loaded_applications()) of
-    {rebar, _Desc, Vsn} ->
-        case string:split(Vsn, ".") of
-            ["2" | _] -> true;
-            _ -> false
-        end;
-    false ->
-        false
-end,
-
-case IsRebar2 of
-    true ->
-        Config2;
-    false ->
-        Config2 ++ [
-            {plugins, [{pc, "~> 1.0"}]},
-            {artifacts, ["priv/jiffy.so"]},
-            {provider_hooks, [
-                {post, [
-                    {compile, {pc, compile}},
-                    {clean, {pc, clean}}
-                ]}
-            ]}
-        ]
-end.
+Config2.
