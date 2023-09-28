@@ -36,6 +36,7 @@ ifeq ($(UNAME_SYS), Darwin)
 endif
 
 CC ?= gcc
+CXX ?= $(CC)
 CFLAGS    += $(CC_OPTS) $(OPTIMIZE) -fPIC $(ERL_CCFLAGS)
 CXXFLAGS  += $(CXX_OPTS) $(OPTIMIZE) -fPIC $(ERL_CCFLAGS)
 LDFLAGS   += $(LD_OPTS) $(ERL_LDFLAGS) -lei -shared
@@ -56,7 +57,8 @@ $(SO_OUTPUT): $(OBJECTS)
 	$(CC) $(CFLAGS) -c $< $(OUTPUT_OPTION)
 
 %.o: %.cc
-	$(CC) $(CXXFLAGS) -c $< $(OUTPUT_OPTION)
+	$(CXX) $(CXXFLAGS) -c $< $(OUTPUT_OPTION)
 
+.PHONY: clean
 clean:
 	@rm -f $(SO_OUTPUT) $(OBJECTS)
